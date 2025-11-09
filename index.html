@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Sísmico Educativo - Con Gráficas Dinámicas</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #555;
+        }
+
+        .tab:hover {
+            background: #e0e0e0;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .panel {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .control-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .control-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #764ba2;
+        }
+
+        .value-display {
+            font-size: 1.1rem;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .building-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .building-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border: 3px solid #e0e0e0;
+        }
+
+        .building-card.with-isolation {
+            border-color: #4CAF50;
+        }
+
+        .building-card h4 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            color: #2c3e50;
+        }
+
+        .building-visual {
+            position: relative;
+            height: 400px;
+            background: linear-gradient(to bottom, #e3f2fd 0%, #90caf9 100%);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: linear-gradient(to bottom, #8d6e63 0%, #5d4037 100%);
+            border-top: 3px solid #6d4c41;
+        }
+
+        .isolator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 30px;
+            background: repeating-linear-gradient(
+                45deg,
+                #FFC107,
+                #FFC107 10px,
+                #FF9800 10px,
+                #FF9800 20px
+            );
+            border: 2px solid #F57C00;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .building {
+            position: absolute;
+            bottom: 110px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            transition: transform 0.1s;
+        }
+
+        .building.no-isolation {
+            bottom: 80px;
+        }
+
+        .floor {
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(to right, #546e7a 0%, #37474f 100%);
+            border: 2px solid #263238;
+            border-bottom: none;
+            position: relative;
+        }
+
+        .floor:last-child {
+            border-radius: 5px 5px 0 0;
+            border-bottom: 2px solid #263238;
+        }
+
+        .floor::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            right: 10%;
+            height: 60%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-50%);
+        }
+
+        .seismic-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            opacity: 0.3;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .metric-card.success {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .metric-card.warning {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        }
+
+        .metric-card.danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .metric-unit {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .comparison-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .comparison-section h4 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .comparison-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .comparison-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .comparison-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .bars-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .bar {
+            height: 30px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: width 0.5s;
+            min-width: 60px;
+        }
+
+        .bar.without {
+            background: linear-gradient(90deg, #f44336 0%, #d32f2f 100%);
+        }
+
+        .bar.with {
+            background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .formula-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .formula {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .definition {
+            color: #555;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .btn-simulate {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+        }
+
+        .btn-simulate:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+        }
+
+        .btn-simulate:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-simulate:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .building-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Constantes físicas
+        const G = 9.81; // m/s²
+        const PI = Math.PI;
+
+        // Funciones de cálculo según las fórmulas del documento
+        
+        function calcularPeriodo(numPisos) {
+            return 0.1 * numPisos; // T = 0.1 * N (segundos)
+        }
+
+        function calcularFrecuencia(periodo) {
+            return 1 / periodo; // f = 1/T (Hz)
+        }
+
+        function calcularFrecuenciaAngular(periodo) {
+            return (2 * PI) / periodo; // ω = 2π/T (rad/s)
+        }
+
+        function calcularLongitudOnda(velocidad, frecuencia) {
+            return velocidad / frecuencia; // λ = V/f (m)
+        }
+
+        function calcularPGA(magnitud, distancia, factorSuelo) {
+            // PGA = Intensidad * FactorDeSuelo
+            const energia = Math.pow(10, 1.5 * magnitud + 4.8);
+            const factorAtenuacion = 1 / Math.pow(distancia, 1.5);
+            const intensidad = Math.log10(energia * factorAtenuacion) / 1.5;
+            return intensidad * factorSuelo; // m/s²
+        }
+
+        function calcularFrecuenciaSitio(velocidadCorte, espesorCapa) {
+            return velocidadCorte / (4 * espesorCapa); // f₀ ≈ VS/(4H) (Hz)
+        }
+
+        function calcularPeriodoAislado(masa, rigidezEfectiva) {
+            return 2 * PI * Math.sqrt(masa / rigidezEfectiva); // Tiso = 2π√(m/k_eff)
+        }
+
+        function calcularAmortiguamientoEfectivo(fuerzaFluencia, rigidezEfectiva, desplazamiento) {
+            return (2 / PI) * (fuerzaFluencia / (rigidezEfectiva * desplazamiento)); // ξ_eff
+        }
+
+        function calcularEnergiasCinetica(masa, velocidad) {
+            return 0.5 * masa * Math.pow(velocidad, 2); // Ek = ½mv²
+        }
+
+        function calcularEnergiaPotencial(rigidez, desplazamiento) {
+            return 0.5 * rigidez * Math.pow(desplazamiento, 2); // Es = ½ku²
+        }
+
+        function calcularCortanteBasal(rigidez, desplazamiento, amortiguamiento, velocidad) {
+            return rigidez * desplazamiento + amortiguamiento * velocidad; // V = ku + cv
+        }
+
+        function calcularIntensidadArias(aceleraciones, dt) {
+            // IA = (π/(2g))∫a²dt
+            let ia = 0;
+            for (let i = 0; i < aceleraciones.length; i++) {
+                ia += Math.pow(aceleraciones[i], 2) * dt;
+            }
+            return (PI / (2 * G)) * ia;
+        }
+
+        function calcularCAV(aceleraciones, dt) {
+            // CAV = ∫|a|dt
+            let cav = 0;
+            for (let i = 0; i < aceleraciones.length; i++) {
+                cav += Math.abs(aceleraciones[i]) * dt;
+            }
+            return cav;
+        }
+
+        function SimuladorSismico() {
+            const [activeTab, setActiveTab] = useState('configuracion');
+            const [isSimulating, setIsSimulating] = useState(false);
+            
+            // Parámetros de la fuente sísmica
+            const [magnitud, setMagnitud] = useState(6.5);
+            const [profundidad, setProfundidad] = useState(10);
+            const [distanciaEpicentral, setDistanciaEpicentral] = useState(50);
+            
+            // Parámetros del sitio
+            const [tipoSuelo, setTipoSuelo] = useState('arenoso');
+            const [velocidadCorte, setVelocidadCorte] = useState(200);
+            const [espesorCapa, setEspesorCapa] = useState(30);
+            
+            // Parámetros de la estructura
+            const [numPisos, setNumPisos] = useState(5);
+            const [masaPorPiso, setMasaPorPiso] = useState(50000);
+            const [amortiguamiento, setAmortiguamiento] = useState(0.05);
+            
+            // Parámetros del aislador
+            const [tieneAislador, setTieneAislador] = useState(true);
+            const [tipoAislador, setTipoAislador] = useState('LRB');
+            const [rigidezAislador, setRigidezAislador] = useState(500000);
+            
+            // Resultados de la simulación
+            const [resultados, setResultados] = useState(null);
+            const [desplazamientoSin, setDesplazamientoSin] = useState(0);
+            const [desplazamientoCon, setDesplazamientoCon] = useState(0);
+            
+            // Referencias para las gráficas
+            const chartDesplazamientoRef = useRef(null);
+            const chartAceleracionRef = useRef(null);
+            const chartEnergiaRef = useRef(null);
+            
+            const chartDesplazamientoInstance = useRef(null);
+            const chartAceleracionInstance = useRef(null);
+            const chartEnergiaInstance = useRef(null);
+
+            // Valores calculados
+            const factorSuelo = tipoSuelo === 'arenoso' ? 1.5 : 1.0;
+            const masaTotal = numPisos * masaPorPiso;
+            const periodo = calcularPeriodo(numPisos);
+            const frecuencia = calcularFrecuencia(periodo);
+            const frecuenciaAngular = calcularFrecuenciaAngular(periodo);
+            const frecuenciaSitio = calcularFrecuenciaSitio(velocidadCorte, espesorCapa);
+
+            const simular = () => {
+                setIsSimulating(true);
+                setActiveTab('graficas');
+                
+                // Calcular PGA
+                const pga = calcularPGA(magnitud, distanciaEpicentral, factorSuelo);
+                
+                // Calcular rigidez y amortiguamiento
+                const rigidez = masaTotal * Math.pow(frecuenciaAngular, 2);
+                const coefAmortiguamiento = 2 * amortiguamiento * masaTotal * frecuenciaAngular;
+                
+                // Simulación simplificada - respuesta máxima
+                const desplMaxSin = (pga / Math.pow(frecuenciaAngular, 2)) * 2.5; // Factor de amplificación dinámico
+                const velMaxSin = desplMaxSin * frecuenciaAngular;
+                const acelMaxSin = pga * 2.5;
+                
+                // Calcular energías sin aislador
+                const energiaCineticaSin = calcularEnergiasCinetica(masaTotal, velMaxSin);
+                const energiaPotencialSin = calcularEnergiaPotencial(rigidez, desplMaxSin);
+                const energiaMecanicaSin = energiaCineticaSin + energiaPotencialSin;
+                const cortanteBasalSin = calcularCortanteBasal(rigidez, desplMaxSin, coefAmortiguamiento, velMaxSin);
+                
+                // Con aislador
+                let desplMaxCon, velMaxCon, acelMaxCon, energiaCineticaCon, energiaPotencialCon;
+                let energiaMecanicaCon, cortanteBasalCon, periodoAislado, amortiguamientoEfectivo;
+                
+                if (tieneAislador) {
+                    periodoAislado = calcularPeriodoAislado(masaTotal, rigidezAislador);
+                    const frecuenciaAngularAislada = 2 * PI / periodoAislado;
+                    
+                    // Reducción típica con aislador: 60-80%
+                    const factorReduccion = 0.3;
+                    acelMaxCon = pga * factorReduccion;
+                    desplMaxCon = (acelMaxCon / Math.pow(frecuenciaAngularAislada, 2)) * 1.5;
+                    velMaxCon = desplMaxCon * frecuenciaAngularAislada;
+                    
+                    // Amortiguamiento efectivo del aislador
+                    const fuerzaFluencia = rigidezAislador * 0.01; // Asumido
+                    amortiguamientoEfectivo = calcularAmortiguamientoEfectivo(
+                        fuerzaFluencia, 
+                        rigidezAislador, 
+                        desplMaxCon
+                    );
+                    
+                    energiaCineticaCon = calcularEnergiasCinetica(masaTotal, velMaxCon);
+                    energiaPotencialCon = calcularEnergiaPotencial(rigidezAislador, desplMaxCon);
+                    energiaMecanicaCon = energiaCineticaCon + energiaPotencialCon;
+                    cortanteBasalCon = calcularCortanteBasal(
+                        rigidezAislador, 
+                        desplMaxCon, 
+                        coefAmortiguamiento * 0.5, 
+                        velMaxCon
+                    );
+                } else {
+                    desplMaxCon = desplMaxSin;
+                    velMaxCon = velMaxSin;
+                    acelMaxCon = acelMaxSin;
+                    energiaCineticaCon = energiaCineticaSin;
+                    energiaPotencialCon = energiaPotencialSin;
+                    energiaMecanicaCon = energiaMecanicaSin;
+                    cortanteBasalCon = cortanteBasalSin;
+                    periodoAislado = periodo;
+                    amortiguamientoEfectivo = amortiguamiento;
+                }
+                
+                // Calcular métricas adicionales
+                const duracion = 20; // segundos
+                const dt = 0.02;
+                const numPuntos = duracion / dt;
+                const aceleraciones = Array.from({length: numPuntos}, (_, i) => {
+                    const t = i * dt;
+                    return pga * Math.sin(2 * PI * frecuenciaSitio * t) * 
+                           Math.exp(-0.1 * t); // Envolvente de decaimiento
+                });
+                
+                const intensidadArias = calcularIntensidadArias(aceleraciones, dt);
+                const cav = calcularCAV(aceleraciones, dt);
+                const aceleracionRMS = Math.sqrt(
+                    aceleraciones.reduce((sum, a) => sum + a*a, 0) / aceleraciones.length
+                );
+                
+                // Factores de reducción
+                const reduccionCortante = tieneAislador ? 
+                    (1 - cortanteBasalCon / cortanteBasalSin) * 100 : 0;
+                const reduccionAceleracion = tieneAislador ? 
+                    (1 - acelMaxCon / acelMaxSin) * 100 : 0;
+                const aumentoDesplazamiento = tieneAislador ? 
+                    ((desplMaxCon - desplMaxSin) / desplMaxSin) * 100 : 0;
+                
+                setResultados({
+                    // Sin aislador
+                    sinAislador: {
+                        desplazamiento: desplMaxSin,
+                        velocidad: velMaxSin,
+                        aceleracion: acelMaxSin,
+                        energiaCinetica: energiaCineticaSin,
+                        energiaPotencial: energiaPotencialSin,
+                        energiaMecanica: energiaMecanicaSin,
+                        cortanteBasal: cortanteBasalSin,
+                        fuerzaSismica: masaTotal * acelMaxSin
+                    },
+                    // Con aislador
+                    conAislador: {
+                        desplazamiento: desplMaxCon,
+                        velocidad: velMaxCon,
+                        aceleracion: acelMaxCon,
+                        energiaCinetica: energiaCineticaCon,
+                        energiaPotencial: energiaPotencialCon,
+                        energiaMecanica: energiaMecanicaCon,
+                        cortanteBasal: cortanteBasalCon,
+                        fuerzaSismica: masaTotal * acelMaxCon,
+                        periodoAislado: periodoAislado,
+                        amortiguamientoEfectivo: amortiguamientoEfectivo
+                    },
+                    // Métricas del sismo
+                    metricas: {
+                        pga: pga,
+                        intensidadArias: intensidadArias,
+                        cav: cav,
+                        aceleracionRMS: aceleracionRMS,
+                        frecuenciaSitio: frecuenciaSitio
+                    },
+                    // Factores de reducción
+                    reduccion: {
+                        cortante: reduccionCortante,
+                        aceleracion: reduccionAceleracion,
+                        desplazamiento: aumentoDesplazamiento
+                    },
+                    // Datos para las gráficas
+                    parametros: {
+                        duracion,
+                        dt,
+                        desplMaxSin,
+                        desplMaxCon,
+                        acelMaxSin,
+                        acelMaxCon,
+                        frecuenciaAngular,
+                        frecuenciaAngularAislada: tieneAislador ? 2 * PI / periodoAislado : frecuenciaAngular,
+                        amortiguamiento,
+                        amortiguamientoEfectivo: tieneAislador ? amortiguamientoEfectivo : amortiguamiento
+                    }
+                });
+                
+                // Iniciar animación de gráficas
+                setTimeout(() => {
+                    animarGraficas(duracion, dt, {
+                        desplMaxSin,
+                        desplMaxCon,
+                        acelMaxSin,
+                        acelMaxCon,
+                        frecuenciaAngular,
+                        frecuenciaAngularAislada: tieneAislador ? 2 * PI / periodoAislado : frecuenciaAngular,
+                        amortiguamiento,
+                        amortiguamientoEfectivo: tieneAislador ? amortiguamientoEfectivo : amortiguamiento,
+                        energiaMecanicaSin,
+                        energiaMecanicaCon
+                    });
+                }, 100);
+            };
+
+            const animarGraficas = (duracion, dt, params) => {
+                const numPuntos = Math.floor(duracion / dt);
+                let currentIndex = 0;
+                
+                const tiempos = [];
+                const desplazamientosSin = [];
+                const desplazamientosCon = [];
+                const aceleracionesSin = [];
+                const aceleracionesCon = [];
+                const energiasSin = [];
+                const energiasCon = [];
+                
+                const intervalo = setInterval(() => {
+                    if (currentIndex >= numPuntos) {
+                        clearInterval(intervalo);
+                        setIsSimulating(false);
+                        return;
+                    }
+                    
+                    const t = currentIndex * dt;
+                    const envolvente = Math.exp(-0.1 * t);
+                    
+                    // Desplazamientos
+                    const desplSin = params.desplMaxSin * Math.sin(params.frecuenciaAngular * t) * 
+                                     Math.exp(-params.amortiguamiento * params.frecuenciaAngular * t) * envolvente;
+                    const desplCon = params.desplMaxCon * Math.sin(params.frecuenciaAngularAislada * t) * 
+                                     Math.exp(-params.amortiguamientoEfectivo * params.frecuenciaAngularAislada * t) * envolvente;
+                    
+                    // Aceleraciones
+                    const acelSin = params.acelMaxSin * Math.sin(params.frecuenciaAngular * t) * envolvente;
+                    const acelCon = params.acelMaxCon * Math.sin(params.frecuenciaAngularAislada * t) * envolvente;
+                    
+                    // Energías
+                    const energiaSin = params.energiaMecanicaSin * Math.pow(Math.cos(params.frecuenciaAngular * t), 2) * 
+                                       Math.exp(-0.1 * t);
+                    const energiaCon = params.energiaMecanicaCon * Math.pow(Math.cos(params.frecuenciaAngularAislada * t), 2) * 
+                                       Math.exp(-0.1 * t);
+                    
+                    tiempos.push(t.toFixed(2));
+                    desplazamientosSin.push((desplSin * 100).toFixed(2)); // cm
+                    desplazamientosCon.push((desplCon * 100).toFixed(2)); // cm
+                    aceleracionesSin.push(acelSin.toFixed(2));
+                    aceleracionesCon.push(acelCon.toFixed(2));
+                    energiasSin.push((energiaSin / 1000).toFixed(2)); // kJ
+                    energiasCon.push((energiaCon / 1000).toFixed(2)); // kJ
+                    
+                    // Actualizar visualización de edificios
+                    setDesplazamientoSin(desplSin * 100);
+                    setDesplazamientoCon(desplCon * 100);
+                    
+                    // Actualizar gráficas (mantener últimos 200 puntos visibles)
+                    const startIndex = Math.max(0, currentIndex - 200);
+                    
+                    if (chartDesplazamientoInstance.current) {
+                        chartDesplazamientoInstance.current.data.labels = tiempos.slice(startIndex);
+                        chartDesplazamientoInstance.current.data.datasets[0].data = desplazamientosSin.slice(startIndex);
+                        chartDesplazamientoInstance.current.data.datasets[1].data = desplazamientosCon.slice(startIndex);
+                        chartDesplazamientoInstance.current.update('none');
+                    }
+                    
+                    if (chartAceleracionInstance.current) {
+                        chartAceleracionInstance.current.data.labels = tiempos.slice(startIndex);
+                        chartAceleracionInstance.current.data.datasets[0].data = aceleracionesSin.slice(startIndex);
+                        chartAceleracionInstance.current.data.datasets[1].data = aceleracionesCon.slice(startIndex);
+                        chartAceleracionInstance.current.update('none');
+                    }
+                    
+                    if (chartEnergiaInstance.current) {
+                        chartEnergiaInstance.current.data.labels = tiempos.slice(startIndex);
+                        chartEnergiaInstance.current.data.datasets[0].data = energiasSin.slice(startIndex);
+                        chartEnergiaInstance.current.data.datasets[1].data = energiasCon.slice(startIndex);
+                        chartEnergiaInstance.current.update('none');
+                    }
+                    
+                    currentIndex++;
+                }, 50); // Actualizar cada 50ms para animación suave
+            };
+
+            // Inicializar gráficas
+            useEffect(() => {
+                if (activeTab === 'graficas' && chartDesplazamientoRef.current && !chartDesplazamientoInstance.current) {
+                    const ctxDespl = chartDesplazamientoRef.current.getContext('2d');
+                    chartDesplazamientoInstance.current = new Chart(ctxDespl, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'Sin Aislador',
+                                    data: [],
+                                    borderColor: '#f44336',
+                                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    pointRadius: 0
+                                },
+                                {
+                                    label: 'Con Aislador',
+                                    data: [],
+                                    borderColor: '#4CAF50',
+                                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    pointRadius: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Desplazamiento vs Tiempo',
+                                    font: { size: 16, weight: 'bold' }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tiempo (s)'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Desplazamiento (cm)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                if (activeTab === 'graficas' && chartAceleracionRef.current && !chartAceleracionInstance.current) {
+                    const ctxAcel = chartAceleracionRef.current.getContext('2d');
+                    chartAceleracionInstance.current = new Chart(ctxAcel, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'Sin Aislador',
+                                    data: [],
+                                    borderColor: '#f44336',
+                                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    pointRadius: 0
+                                },
+                                {
+                                    label: 'Con Aislador',
+                                    data: [],
+                                    borderColor: '#4CAF50',
+                                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    pointRadius: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Aceleración vs Tiempo',
+                                    font: { size: 16, weight: 'bold' }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tiempo (s)'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Aceleración (m/s²)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                if (activeTab === 'graficas' && chartEnergiaRef.current && !chartEnergiaInstance.current) {
+                    const ctxEnergia = chartEnergiaRef.current.getContext('2d');
+                    chartEnergiaInstance.current = new Chart(ctxEnergia, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'Sin Aislador',
+                                    data: [],
+                                    borderColor: '#f44336',
+                                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    pointRadius: 0,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Con Aislador',
+                                    data: [],
+                                    borderColor: '#4CAF50',
+                                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    pointRadius: 0,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Energía Mecánica vs Tiempo',
+                                    font: { size: 16, weight: 'bold' }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tiempo (s)'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Energía (kJ)'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, [activeTab]);
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🌍 Simulador Sísmico Educativo</h1>
+                        <p>Propagación de Ondas y Mitigación Estructural con Aisladores</p>
+                    </div>
+                    
+                    <div className="content">
+                        <div className="tabs">
+                            <button 
+                                className={`tab ${activeTab === 'configuracion' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('configuracion')}
+                            >
+                                ⚙️ Configuración
+                            </button>
+                            <button 
+                                className={`tab ${activeTab === 'visualizacion' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('visualizacion')}
+                            >
+                                🏢 Visualización
+                            </button>
+                            <button 
+                                className={`tab ${activeTab === 'graficas' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('graficas')}
+                            >
+                                📈 Gráficas Dinámicas
+                            </button>
+                            <button 
+                                className={`tab ${activeTab === 'resultados' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('resultados')}
+                            >
+                                📊 Resultados
+                            </button>
+                            <button 
+                                className={`tab ${activeTab === 'formulas' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('formulas')}
+                            >
+                                📐 Fórmulas
+                            </button>
+                        </div>
+
+                        {/* Panel de Configuración */}
+                        <div className={`panel ${activeTab === 'configuracion' ? 'active' : ''}`}>
+                            <div className="control-section">
+                                <h3>🌊 Fuente Sísmica</h3>
+                                <div className="control-grid">
+                                    <div className="control-group">
+                                        <label>Magnitud (Mw): <span className="value-display">{magnitud.toFixed(1)}</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="4" 
+                                            max="9" 
+                                            step="0.1" 
+                                            value={magnitud}
+                                            onChange={(e) => setMagnitud(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="control-group">
+                                        <label>Profundidad (h): <span className="value-display">{profundidad} km</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="5" 
+                                            max="100" 
+                                            step="5" 
+                                            value={profundidad}
+                                            onChange={(e) => setProfundidad(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="control-group">
+                                        <label>Distancia Epicentral (R): <span className="value-display">{distanciaEpicentral} km</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="10" 
+                                            max="200" 
+                                            step="10" 
+                                            value={distanciaEpicentral}
+                                            onChange={(e) => setDistanciaEpicentral(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="control-section">
+                                <h3>🏔️ Características del Sitio</h3>
+                                <div className="control-grid">
+                                    <div className="control-group">
+                                        <label>Tipo de Suelo:</label>
+                                        <select 
+                                            value={tipoSuelo}
+                                            onChange={(e) => setTipoSuelo(e.target.value)}
+                                            style={{padding: '8px', borderRadius: '5px', border: '2px solid #ddd'}}
+                                        >
+                                            <option value="rocoso">Rocoso (Factor: 1.0)</option>
+                                            <option value="arenoso">Arenoso (Factor: 1.5)</option>
+                                        </select>
+                                    </div>
+                                    <div className="control-group">
+                                        <label>Velocidad de Corte (Vs): <span className="value-display">{velocidadCorte} m/s</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="100" 
+                                            max="800" 
+                                            step="50" 
+                                            value={velocidadCorte}
+                                            onChange={(e) => setVelocidadCorte(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="control-group">
+                                        <label>Espesor de Capa (H): <span className="value-display">{espesorCapa} m</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="10" 
+                                            max="100" 
+                                            step="5" 
+                                            value={espesorCapa}
+                                            onChange={(e) => setEspesorCapa(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{marginTop: '15px', padding: '10px', background: '#e3f2fd', borderRadius: '5px'}}>
+                                    <strong>Frecuencia Fundamental del Sitio (f₀):</strong> {frecuenciaSitio.toFixed(2)} Hz
+                                </div>
+                            </div>
+
+                            <div className="control-section">
+                                <h3>🏗️ Estructura</h3>
+                                <div className="control-grid">
+                                    <div className="control-group">
+                                        <label>Número de Pisos: <span className="value-display">{numPisos}</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="1" 
+                                            max="20" 
+                                            step="1" 
+                                            value={numPisos}
+                                            onChange={(e) => setNumPisos(parseInt(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="control-group">
+                                        <label>Masa por Piso: <span className="value-display">{(masaPorPiso/1000).toFixed(0)} ton</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="20000" 
+                                            max="100000" 
+                                            step="10000" 
+                                            value={masaPorPiso}
+                                            onChange={(e) => setMasaPorPiso(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="control-group">
+                                        <label>Amortiguamiento (ζ): <span className="value-display">{(amortiguamiento*100).toFixed(1)}%</span></label>
+                                        <input 
+                                            type="range" 
+                                            min="0.01" 
+                                            max="0.15" 
+                                            step="0.01" 
+                                            value={amortiguamiento}
+                                            onChange={(e) => setAmortiguamiento(parseFloat(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{marginTop: '15px', padding: '15px', background: '#f3e5f5', borderRadius: '5px'}}>
+                                    <div><strong>Masa Total:</strong> {(masaTotal/1000).toFixed(0)} toneladas</div>
+                                    <div><strong>Periodo Natural (T):</strong> {periodo.toFixed(3)} s</div>
+                                    <div><strong>Frecuencia (f):</strong> {frecuencia.toFixed(3)} Hz</div>
+                                    <div><strong>Frecuencia Angular (ω):</strong> {frecuenciaAngular.toFixed(3)} rad/s</div>
+                                </div>
+                            </div>
+
+                            <div className="control-section">
+                                <h3>🛡️ Aislador Sísmico</h3>
+                                <div className="control-group" style={{marginBottom: '20px'}}>
+                                    <label style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={tieneAislador}
+                                            onChange={(e) => setTieneAislador(e.target.checked)}
+                                            style={{width: '20px', height: '20px'}}
+                                        />
+                                        <span>Habilitar Aislador Sísmico</span>
+                                    </label>
+                                </div>
+                                
+                                {tieneAislador && (
+                                    <div className="control-grid">
+                                        <div className="control-group">
+                                            <label>Tipo de Aislador:</label>
+                                            <select 
+                                                value={tipoAislador}
+                                                onChange={(e) => setTipoAislador(e.target.value)}
+                                                style={{padding: '8px', borderRadius: '5px', border: '2px solid #ddd'}}
+                                            >
+                                                <option value="LRB">LRB (Lead Rubber Bearing)</option>
+                                                <option value="FPS">FPS (Friction Pendulum)</option>
+                                            </select>
+                                        </div>
+                                        <div className="control-group">
+                                            <label>Rigidez Efectiva (k_eff): <span className="value-display">{(rigidezAislador/1000).toFixed(0)} kN/m</span></label>
+                                            <input 
+                                                type="range" 
+                                                min="100000" 
+                                                max="2000000" 
+                                                step="50000" 
+                                                value={rigidezAislador}
+                                                onChange={(e) => setRigidezAislador(parseFloat(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button 
+                                className="btn-simulate" 
+                                onClick={simular}
+                                disabled={isSimulating}
+                            >
+                                {isSimulating ? '⚡ Simulando...' : '▶️ SIMULAR SISMO'}
+                            </button>
+                        </div>
+
+                        {/* Panel de Visualización */}
+                        <div className={`panel ${activeTab === 'visualizacion' ? 'active' : ''}`}>
+                            <div className="building-container">
+                                <div className="building-card">
+                                    <h4>🏢 Sin Aislador Sísmico</h4>
+                                    <div className="building-visual">
+                                        <svg className="seismic-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
+                                            <path 
+                                                d="M0,10 Q25,5 50,10 T100,10" 
+                                                fill="none" 
+                                                stroke="#f44336" 
+                                                strokeWidth="2"
+                                            />
+                                        </svg>
+                                        <div className="ground"></div>
+                                        <div 
+                                            className="building no-isolation" 
+                                            style={{
+                                                transform: `translateX(calc(-50% + ${desplazamientoSin}px))`
+                                            }}
+                                        >
+                                            {Array.from({length: numPisos}, (_, i) => (
+                                                <div key={i} className="floor"></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {resultados && (
+                                        <div className="metrics-grid">
+                                            <div className="metric-card danger">
+                                                <div className="metric-label">Desplazamiento</div>
+                                                <div className="metric-value">{(resultados.sinAislador.desplazamiento * 100).toFixed(2)}</div>
+                                                <div className="metric-unit">cm</div>
+                                            </div>
+                                            <div className="metric-card danger">
+                                                <div className="metric-label">Aceleración</div>
+                                                <div className="metric-value">{resultados.sinAislador.aceleracion.toFixed(2)}</div>
+                                                <div className="metric-unit">m/s²</div>
+                                            </div>
+                                            <div className="metric-card danger">
+                                                <div className="metric-label">Cortante Basal</div>
+                                                <div className="metric-value">{(resultados.sinAislador.cortanteBasal / 1000).toFixed(0)}</div>
+                                                <div className="metric-unit">kN</div>
+                                            </div>
+                                            <div className="metric-card danger">
+                                                <div className="metric-label">Energía Mecánica</div>
+                                                <div className="metric-value">{(resultados.sinAislador.energiaMecanica / 1000).toFixed(0)}</div>
+                                                <div className="metric-unit">kJ</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="building-card with-isolation">
+                                    <h4>🛡️ Con Aislador Sísmico</h4>
+                                    <div className="building-visual">
+                                        <svg className="seismic-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
+                                            <path 
+                                                d="M0,10 Q25,12 50,10 T100,10" 
+                                                fill="none" 
+                                                stroke="#4CAF50" 
+                                                strokeWidth="2"
+                                            />
+                                        </svg>
+                                        <div className="ground"></div>
+                                        {tieneAislador && (
+                                            <div className="isolator">
+                                                {tipoAislador}
+                                            </div>
+                                        )}
+                                        <div 
+                                            className="building" 
+                                            style={{
+                                                transform: `translateX(calc(-50% + ${desplazamientoCon}px))`,
+                                                bottom: tieneAislador ? '110px' : '80px'
+                                            }}
+                                        >
+                                            {Array.from({length: numPisos}, (_, i) => (
+                                                <div key={i} className="floor"></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {resultados && (
+                                        <div className="metrics-grid">
+                                            <div className="metric-card success">
+                                                <div className="metric-label">Desplazamiento</div>
+                                                <div className="metric-value">{(resultados.conAislador.desplazamiento * 100).toFixed(2)}</div>
+                                                <div className="metric-unit">cm</div>
+                                            </div>
+                                            <div className="metric-card success">
+                                                <div className="metric-label">Aceleración</div>
+                                                <div className="metric-value">{resultados.conAislador.aceleracion.toFixed(2)}</div>
+                                                <div className="metric-unit">m/s²</div>
+                                            </div>
+                                            <div className="metric-card success">
+                                                <div className="metric-label">Cortante Basal</div>
+                                                <div className="metric-value">{(resultados.conAislador.cortanteBasal / 1000).toFixed(0)}</div>
+                                                <div className="metric-unit">kN</div>
+                                            </div>
+                                            <div className="metric-card success">
+                                                <div className="metric-label">Energía Mecánica</div>
+                                                <div className="metric-value">{(resultados.conAislador.energiaMecanica / 1000).toFixed(0)}</div>
+                                                <div className="metric-unit">kJ</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Panel de Gráficas Dinámicas */}
+                        <div className={`panel ${activeTab === 'graficas' ? 'active' : ''}`}>
+                            {resultados ? (
+                                <div className="charts-grid">
+                                    <div className="control-section">
+                                        <h3>📉 Desplazamiento en Tiempo Real</h3>
+                                        <p style={{marginBottom: '15px', color: '#666'}}>
+                                            Observe cómo el edificio con aislador (línea verde) tiene oscilaciones mucho menores y más controladas 
+                                            comparado con el edificio sin aislador (línea roja).
+                                        </p>
+                                        <div className="chart-container">
+                                            <canvas ref={chartDesplazamientoRef}></canvas>
+                                        </div>
+                                    </div>
+
+                                    <div className="control-section">
+                                        <h3>⚡ Aceleración en Tiempo Real</h3>
+                                        <p style={{marginBottom: '15px', color: '#666'}}>
+                                            El aislador sísmico reduce significativamente las aceleraciones transmitidas a la estructura, 
+                                            protegiendo tanto el edificio como su contenido.
+                                        </p>
+                                        <div className="chart-container">
+                                            <canvas ref={chartAceleracionRef}></canvas>
+                                        </div>
+                                    </div>
+
+                                    <div className="control-section">
+                                        <h3>🔋 Energía Mecánica en Tiempo Real</h3>
+                                        <p style={{marginBottom: '15px', color: '#666'}}>
+                                            La energía disipada por el aislador se traduce en menor energía transmitida a la superestructura, 
+                                            evidenciando su efectividad en la protección sísmica.
+                                        </p>
+                                        <div className="chart-container">
+                                            <canvas ref={chartEnergiaRef}></canvas>
+                                        </div>
+                                    </div>
+
+                                    {isSimulating && (
+                                        <div style={{
+                                            textAlign: 'center',
+                                            padding: '30px',
+                                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                            color: 'white',
+                                            borderRadius: '15px',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            animation: 'pulse 1.5s infinite'
+                                        }}>
+                                            ⚡ Simulación en Progreso... {isSimulating ? '🌊' : ''}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{textAlign: 'center', padding: '60px', color: '#999'}}>
+                                    <h3>⚠️ No hay gráficas disponibles</h3>
+                                    <p>Configure los parámetros y ejecute la simulación para ver las gráficas dinámicas</p>
+                                    <button 
+                                        className="btn-simulate" 
+                                        onClick={() => setActiveTab('configuracion')}
+                                        style={{marginTop: '20px'}}
+                                    >
+                                        Ir a Configuración
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Panel de Resultados */}
+                        <div className={`panel ${activeTab === 'resultados' ? 'active' : ''}`}>
+                            {resultados ? (
+                                <>
+                                    <div className="control-section">
+                                        <h3>📈 Métricas del Sismo</h3>
+                                        <div className="metrics-grid">
+                                            <div className="metric-card">
+                                                <div className="metric-label">PGA (Aceleración Pico)</div>
+                                                <div className="metric-value">{resultados.metricas.pga.toFixed(3)}</div>
+                                                <div className="metric-unit">m/s²</div>
+                                            </div>
+                                            <div className="metric-card">
+                                                <div className="metric-label">Intensidad de Arias (IA)</div>
+                                                <div className="metric-value">{resultados.metricas.intensidadArias.toFixed(3)}</div>
+                                                <div className="metric-unit">m/s</div>
+                                            </div>
+                                            <div className="metric-card">
+                                                <div className="metric-label">CAV</div>
+                                                <div className="metric-value">{resultados.metricas.cav.toFixed(3)}</div>
+                                                <div className="metric-unit">m/s</div>
+                                            </div>
+                                            <div className="metric-card">
+                                                <div className="metric-label">Aceleración RMS</div>
+                                                <div className="metric-value">{resultados.metricas.aceleracionRMS.toFixed(3)}</div>
+                                                <div className="metric-unit">m/s²</div>
+                                            </div>
+                                            <div className="metric-card">
+                                                <div className="metric-label">Frecuencia del Sitio</div>
+                                                <div className="metric-value">{resultados.metricas.frecuenciaSitio.toFixed(2)}</div>
+                                                <div className="metric-unit">Hz</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {tieneAislador && (
+                                        <div className="comparison-section">
+                                            <h4>📊 Comparación: Efectividad del Aislador</h4>
+                                            <div className="comparison-bars">
+                                                <div className="comparison-item">
+                                                    <div className="comparison-label">Cortante Basal</div>
+                                                    <div className="bars-container">
+                                                        <div 
+                                                            className="bar without" 
+                                                            style={{width: '100%'}}
+                                                        >
+                                                            Sin: {(resultados.sinAislador.cortanteBasal/1000).toFixed(0)} kN
+                                                        </div>
+                                                        <div 
+                                                            className="bar with" 
+                                                            style={{
+                                                                width: `${(resultados.conAislador.cortanteBasal / resultados.sinAislador.cortanteBasal * 100).toFixed(0)}%`
+                                                            }}
+                                                        >
+                                                            Con: {(resultados.conAislador.cortanteBasal/1000).toFixed(0)} kN
+                                                        </div>
+                                                    </div>
+                                                    <div style={{color: '#4CAF50', fontWeight: 'bold', marginTop: '5px'}}>
+                                                        ✓ Reducción: {resultados.reduccion.cortante.toFixed(1)}%
+                                                    </div>
+                                                </div>
+
+                                                <div className="comparison-item">
+                                                    <div className="comparison-label">Aceleración Máxima</div>
+                                                    <div className="bars-container">
+                                                        <div 
+                                                            className="bar without" 
+                                                            style={{width: '100%'}}
+                                                        >
+                                                            Sin: {resultados.sinAislador.aceleracion.toFixed(2)} m/s²
+                                                        </div>
+                                                        <div 
+                                                            className="bar with" 
+                                                            style={{
+                                                                width: `${(resultados.conAislador.aceleracion / resultados.sinAislador.aceleracion * 100).toFixed(0)}%`
+                                                            }}
+                                                        >
+                                                            Con: {resultados.conAislador.aceleracion.toFixed(2)} m/s²
+                                                        </div>
+                                                    </div>
+                                                    <div style={{color: '#4CAF50', fontWeight: 'bold', marginTop: '5px'}}>
+                                                        ✓ Reducción: {resultados.reduccion.aceleracion.toFixed(1)}%
+                                                    </div>
+                                                </div>
+
+                                                <div className="comparison-item">
+                                                    <div className="comparison-label">Energía Mecánica</div>
+                                                    <div className="bars-container">
+                                                        <div 
+                                                            className="bar without" 
+                                                            style={{width: '100%'}}
+                                                        >
+                                                            Sin: {(resultados.sinAislador.energiaMecanica/1000).toFixed(0)} kJ
+                                                        </div>
+                                                        <div 
+                                                            className="bar with" 
+                                                            style={{
+                                                                width: `${(resultados.conAislador.energiaMecanica / resultados.sinAislador.energiaMecanica * 100).toFixed(0)}%`
+                                                            }}
+                                                        >
+                                                            Con: {(resultados.conAislador.energiaMecanica/1000).toFixed(0)} kJ
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="comparison-item">
+                                                    <div className="comparison-label">Desplazamiento del Aislador</div>
+                                                    <div style={{
+                                                        padding: '15px',
+                                                        background: '#fff3e0',
+                                                        borderRadius: '5px',
+                                                        marginTop: '10px'
+                                                    }}>
+                                                        <strong>Desplazamiento:</strong> {(resultados.conAislador.desplazamiento * 100).toFixed(2)} cm
+                                                        <br/>
+                                                        <strong>Periodo Aislado:</strong> {resultados.conAislador.periodoAislado.toFixed(3)} s
+                                                        <br/>
+                                                        <strong>Amortiguamiento Efectivo:</strong> {(resultados.conAislador.amortiguamientoEfectivo * 100).toFixed(1)}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="control-section">
+                                        <h3>⚡ Balance de Energía</h3>
+                                        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+                                            <div>
+                                                <h4 style={{marginBottom: '15px'}}>Sin Aislador</h4>
+                                                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                                                    <div style={{padding: '10px', background: '#ffebee', borderRadius: '5px'}}>
+                                                        <strong>Energía Cinética:</strong> {(resultados.sinAislador.energiaCinetica/1000).toFixed(2)} kJ
+                                                    </div>
+                                                    <div style={{padding: '10px', background: '#e3f2fd', borderRadius: '5px'}}>
+                                                        <strong>Energía Potencial:</strong> {(resultados.sinAislador.energiaPotencial/1000).toFixed(2)} kJ
+                                                    </div>
+                                                    <div style={{padding: '10px', background: '#f3e5f5', borderRadius: '5px'}}>
+                                                        <strong>Energía Mecánica Total:</strong> {(resultados.sinAislador.energiaMecanica/1000).toFixed(2)} kJ
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h4 style={{marginBottom: '15px'}}>Con Aislador</h4>
+                                                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                                                    <div style={{padding: '10px', background: '#e8f5e9', borderRadius: '5px'}}>
+                                                        <strong>Energía Cinética:</strong> {(resultados.conAislador.energiaCinetica/1000).toFixed(2)} kJ
+                                                    </div>
+                                                    <div style={{padding: '10px', background: '#e8f5e9', borderRadius: '5px'}}>
+                                                        <strong>Energía Potencial:</strong> {(resultados.conAislador.energiaPotencial/1000).toFixed(2)} kJ
+                                                    </div>
+                                                    <div style={{padding: '10px', background: '#c8e6c9', borderRadius: '5px'}}>
+                                                        <strong>Energía Mecánica Total:</strong> {(resultados.conAislador.energiaMecanica/1000).toFixed(2)} kJ
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{textAlign: 'center', padding: '60px', color: '#999'}}>
+                                    <h3>⚠️ No hay resultados disponibles</h3>
+                                    <p>Configure los parámetros y ejecute la simulación</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Panel de Fórmulas */}
+                        <div className={`panel ${activeTab === 'formulas' ? 'active' : ''}`}>
+                            <div className="formula-section">
+                                <h3>🌊 Propagación y Atenuación</h3>
+                                <div className="formula">E = 10^(1.5 × Mw + 4.8)</div>
+                                <div className="definition">Energía liberada por el sismo (Gutenberg-Richter)</div>
+                                
+                                <div className="formula">Atenuación = 1 / R^1.5</div>
+                                <div className="definition">Factor de atenuación geométrica por distancia</div>
+                                
+                                <div className="formula">PGA = Intensidad × Factor_Suelo</div>
+                                <div className="definition">Aceleración pico del suelo en superficie</div>
+                            </div>
+
+                            <div className="formula-section">
+                                <h3>📐 Propiedades Estructurales</h3>
+                                <div className="formula">T = 0.1 × N_pisos</div>
+                                <div className="definition">Periodo natural de la estructura (segundos)</div>
+                                
+                                <div className="formula">f = 1 / T</div>
+                                <div className="definition">Frecuencia natural (Hz)</div>
+                                
+                                <div className="formula">ω = 2π / T</div>
+                                <div className="definition">Frecuencia angular (rad/s)</div>
+                                
+                                <div className="formula">k = m × ω²</div>
+                                <div className="definition">Rigidez de la estructura (N/m)</div>
+                                
+                                <div className="formula">c = 2 × ζ × m × ω</div>
+                                <div className="definition">Coeficiente de amortiguamiento viscoso</div>
+                            </div>
+
+                            <div className="formula-section">
+                                <h3>🏔️ Efecto de Sitio</h3>
+                                <div className="formula">f₀ ≈ Vs / (4H)</div>
+                                <div className="definition">Frecuencia fundamental del sitio</div>
+                                
+                                <div className="formula">λ = V / f</div>
+                                <div className="definition">Longitud de onda</div>
+                            </div>
+
+                            <div className="formula-section">
+                                <h3>⚡ Energías</h3>
+                                <div className="formula">Ek = ½ m v²</div>
+                                <div className="definition">Energía cinética</div>
+                                
+                                <div className="formula">Es = ½ k u²</div>
+                                <div className="definition">Energía potencial elástica</div>
+                                
+                                <div className="formula">Em = Ek + Es</div>
+                                <div className="definition">Energía mecánica total</div>
+                                
+                                <div className="formula">Ec = ∫ c v² dt</div>
+                                <div className="definition">Energía disipada por amortiguamiento viscoso</div>
+                                
+                                <div className="formula">Ein = ∫ (-m üg ũ) dt</div>
+                                <div className="definition">Energía de entrada desde el suelo</div>
+                            </div>
+
+                            <div className="formula-section">
+                                <h3>📊 Métricas Sísmicas</h3>
+                                <div className="formula">IA = (π / 2g) ∫ a²(t) dt</div>
+                                <div className="definition">Intensidad de Arias</div>
+                                
+                                <div className="formula">CAV = ∫ |a(t)| dt</div>
+                                <div className="definition">Valor acumulado de aceleración</div>
+                                
+                                <div className="formula">a_rms = √(⟨a²⟩)</div>
+                                <div className="definition">Aceleración RMS</div>
+                                
+                                <div className="formula">V = k u + c v</div>
+                                <div className="definition">Cortante basal</div>
+                            </div>
+
+                            <div className="formula-section">
+                                <h3>🛡️ Aisladores Sísmicos</h3>
+                                <div className="formula">Tiso = 2π √(m / k_eff)</div>
+                                <div className="definition">Periodo del sistema aislado (LRB)</div>
+                                
+                                <div className="formula">Tiso = 2π √(Rp / g)</div>
+                                <div className="definition">Periodo del sistema aislado (FPS)</div>
+                                
+                                <div className="formula">ξ_eff ≈ (2/π) × (Fy / (k_eff û))</div>
+                                <div className="definition">Amortiguamiento efectivo (LRB)</div>
+                                
+                                <div className="formula">ξ_eff ≈ μ / (2π)</div>
+                                <div className="definition">Amortiguamiento efectivo (FPS)</div>
+                                
+                                <div className="formula">Es,iso = ½ k_eff u_iso²</div>
+                                <div className="definition">Energía elástica en el aislador</div>
+                            </div>
+
+                            <div className="formula-section">
+                                <h3>📈 Factores de Reducción</h3>
+                                <div className="formula">RV = V_max,iso / V_max,sin</div>
+                                <div className="definition">Factor de reducción del cortante basal</div>
+                                
+                                <div className="formula">RSa = a_abs,max,iso / a_abs,max,sin</div>
+                                <div className="definition">Factor de reducción de aceleraciones</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<SimuladorSismico />, document.getElementById('root'));
+    </script>
+</body>
+</html>

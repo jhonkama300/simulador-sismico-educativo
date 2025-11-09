@@ -1,0 +1,12 @@
+{
+  "name": "simulador-sismico-educativo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simulador Sísmico Educativo - React (UMD) + Babel Standalone",
+  "scripts": {
+    "start": "lite-server --baseDir ."
+  },
+  "devDependencies": {
+    "lite-server": "^2.6.1"
+  }
+}
