@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Sísmico Educativo - Con Gráficas Dinámicas</title>
+    <title>Simulador Sísmico Educativo - Aisladores de Base</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -239,7 +239,7 @@
             left: 50%;
             transform: translateX(-50%);
             width: 100px;
-            transition: transform 0.1s;
+            transition: transform 0.05s;
         }
 
         .building.no-isolation {
@@ -271,15 +271,6 @@
             transform: translateY(-50%);
         }
 
-        .seismic-wave {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 80px;
-            opacity: 0.3;
-        }
-
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -298,10 +289,6 @@
 
         .metric-card.success {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-        }
-
-        .metric-card.warning {
-            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
         }
 
         .metric-card.danger {
@@ -381,29 +368,6 @@
             background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
         }
 
-        .formula-section {
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-        }
-
-        .formula {
-            font-family: 'Courier New', monospace;
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-            overflow-x: auto;
-        }
-
-        .definition {
-            color: #555;
-            line-height: 1.6;
-            margin: 10px 0;
-        }
-
         .chart-container {
             position: relative;
             height: 300px;
@@ -450,6 +414,25 @@
             cursor: not-allowed;
         }
 
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #2196F3;
+        }
+
+        .info-box h5 {
+            margin-bottom: 10px;
+            color: #1976D2;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
         @media (max-width: 768px) {
             .building-container {
                 grid-template-columns: 1fr;
@@ -475,10 +458,10 @@
         const G = 9.81; // m/s²
         const PI = Math.PI;
 
-        // Funciones de cálculo según las fórmulas del documento
+        // Funciones de cálculo basadas en la teoría real de aisladores sísmicos
         
         function calcularPeriodo(numPisos) {
-            return 0.1 * numPisos; // T = 0.1 * N (segundos)
+            return 0.1 * numPisos; // T = 0.1 * N (segundos) - Fórmula simplificada
         }
 
         function calcularFrecuencia(periodo) {
@@ -489,16 +472,12 @@
             return (2 * PI) / periodo; // ω = 2π/T (rad/s)
         }
 
-        function calcularLongitudOnda(velocidad, frecuencia) {
-            return velocidad / frecuencia; // λ = V/f (m)
-        }
-
         function calcularPGA(magnitud, distancia, factorSuelo) {
-            // PGA = Intensidad * FactorDeSuelo
+            // Fórmula de atenuación simplificada
             const energia = Math.pow(10, 1.5 * magnitud + 4.8);
             const factorAtenuacion = 1 / Math.pow(distancia, 1.5);
             const intensidad = Math.log10(energia * factorAtenuacion) / 1.5;
-            return intensidad * factorSuelo; // m/s²
+            return intensidad * factorSuelo;
         }
 
         function calcularFrecuenciaSitio(velocidadCorte, espesorCapa) {
@@ -509,8 +488,20 @@
             return 2 * PI * Math.sqrt(masa / rigidezEfectiva); // Tiso = 2π√(m/k_eff)
         }
 
-        function calcularAmortiguamientoEfectivo(fuerzaFluencia, rigidezEfectiva, desplazamiento) {
-            return (2 / PI) * (fuerzaFluencia / (rigidezEfectiva * desplazamiento)); // ξ_eff
+        function calcularAmortiguamientoEfectivo(tipoAislador, desplazamiento) {
+            // Según el documento: LRB proporciona 25-30% de amortiguamiento
+            // HDRB proporciona 10-20% de amortiguamiento
+            // FPS depende del coeficiente de fricción
+            switch(tipoAislador) {
+                case 'LRB':
+                    return 0.27; // 27% amortiguamiento efectivo
+                case 'HDRB':
+                    return 0.15; // 15% amortiguamiento efectivo
+                case 'FPS':
+                    return 0.20; // 20% amortiguamiento por fricción
+                default:
+                    return 0.05;
+            }
         }
 
         function calcularEnergiasCinetica(masa, velocidad) {
@@ -525,31 +516,12 @@
             return rigidez * desplazamiento + amortiguamiento * velocidad; // V = ku + cv
         }
 
-        function calcularIntensidadArias(aceleraciones, dt) {
-            // IA = (π/(2g))∫a²dt
-            let ia = 0;
-            for (let i = 0; i < aceleraciones.length; i++) {
-                ia += Math.pow(aceleraciones[i], 2) * dt;
-            }
-            return (PI / (2 * G)) * ia;
-        }
-
-        function calcularCAV(aceleraciones, dt) {
-            // CAV = ∫|a|dt
-            let cav = 0;
-            for (let i = 0; i < aceleraciones.length; i++) {
-                cav += Math.abs(aceleraciones[i]) * dt;
-            }
-            return cav;
-        }
-
         function SimuladorSismico() {
             const [activeTab, setActiveTab] = useState('configuracion');
             const [isSimulating, setIsSimulating] = useState(false);
             
             // Parámetros de la fuente sísmica
             const [magnitud, setMagnitud] = useState(6.5);
-            const [profundidad, setProfundidad] = useState(10);
             const [distanciaEpicentral, setDistanciaEpicentral] = useState(50);
             
             // Parámetros del sitio
@@ -596,22 +568,25 @@
                 // Calcular PGA
                 const pga = calcularPGA(magnitud, distanciaEpicentral, factorSuelo);
                 
-                // Calcular rigidez y amortiguamiento
+                // Calcular rigidez y amortiguamiento estructural
                 const rigidez = masaTotal * Math.pow(frecuenciaAngular, 2);
                 const coefAmortiguamiento = 2 * amortiguamiento * masaTotal * frecuenciaAngular;
                 
-                // Simulación simplificada - respuesta máxima
-                const desplMaxSin = (pga / Math.pow(frecuenciaAngular, 2)) * 2.5; // Factor de amplificación dinámico
-                const velMaxSin = desplMaxSin * frecuenciaAngular;
-                const acelMaxSin = pga * 2.5;
+                // Factor de amplificación dinámica (típicamente 2.5 para estructuras sin aislar)
+                const factorAmplificacion = 2.5;
                 
-                // Calcular energías sin aislador
+                // Sin aislador - Base Fija
+                const desplMaxSin = (pga / Math.pow(frecuenciaAngular, 2)) * factorAmplificacion;
+                const velMaxSin = desplMaxSin * frecuenciaAngular;
+                const acelMaxSin = pga * factorAmplificacion;
+                
+                // Energías sin aislador
                 const energiaCineticaSin = calcularEnergiasCinetica(masaTotal, velMaxSin);
                 const energiaPotencialSin = calcularEnergiaPotencial(rigidez, desplMaxSin);
                 const energiaMecanicaSin = energiaCineticaSin + energiaPotencialSin;
                 const cortanteBasalSin = calcularCortanteBasal(rigidez, desplMaxSin, coefAmortiguamiento, velMaxSin);
                 
-                // Con aislador
+                // Con aislador - según tipo
                 let desplMaxCon, velMaxCon, acelMaxCon, energiaCineticaCon, energiaPotencialCon;
                 let energiaMecanicaCon, cortanteBasalCon, periodoAislado, amortiguamientoEfectivo;
                 
@@ -619,19 +594,33 @@
                     periodoAislado = calcularPeriodoAislado(masaTotal, rigidezAislador);
                     const frecuenciaAngularAislada = 2 * PI / periodoAislado;
                     
-                    // Reducción típica con aislador: 60-80%
-                    const factorReduccion = 0.3;
+                    // Amortiguamiento efectivo según tipo de aislador
+                    amortiguamientoEfectivo = calcularAmortiguamientoEfectivo(tipoAislador, 0);
+                    
+                    // Factores de reducción según documento técnico
+                    // LRB: Reducción típica 60-80%
+                    // HDRB: Reducción típica 50-70%
+                    // FPS: Reducción típica 55-75%
+                    let factorReduccion;
+                    switch(tipoAislador) {
+                        case 'LRB':
+                            factorReduccion = 0.25; // Reduce a 25% (75% de reducción)
+                            break;
+                        case 'HDRB':
+                            factorReduccion = 0.35; // Reduce a 35% (65% de reducción)
+                            break;
+                        case 'FPS':
+                            factorReduccion = 0.30; // Reduce a 30% (70% de reducción)
+                            break;
+                        default:
+                            factorReduccion = 0.3;
+                    }
+                    
                     acelMaxCon = pga * factorReduccion;
                     desplMaxCon = (acelMaxCon / Math.pow(frecuenciaAngularAislada, 2)) * 1.5;
                     velMaxCon = desplMaxCon * frecuenciaAngularAislada;
                     
-                    // Amortiguamiento efectivo del aislador
-                    const fuerzaFluencia = rigidezAislador * 0.01; // Asumido
-                    amortiguamientoEfectivo = calcularAmortiguamientoEfectivo(
-                        fuerzaFluencia, 
-                        rigidezAislador, 
-                        desplMaxCon
-                    );
+                    const coefAmortiguamientoEfectivo = 2 * amortiguamientoEfectivo * masaTotal * frecuenciaAngularAislada;
                     
                     energiaCineticaCon = calcularEnergiasCinetica(masaTotal, velMaxCon);
                     energiaPotencialCon = calcularEnergiaPotencial(rigidezAislador, desplMaxCon);
@@ -639,7 +628,7 @@
                     cortanteBasalCon = calcularCortanteBasal(
                         rigidezAislador, 
                         desplMaxCon, 
-                        coefAmortiguamiento * 0.5, 
+                        coefAmortiguamientoEfectivo, 
                         velMaxCon
                     );
                 } else {
@@ -654,32 +643,13 @@
                     amortiguamientoEfectivo = amortiguamiento;
                 }
                 
-                // Calcular métricas adicionales
-                const duracion = 20; // segundos
-                const dt = 0.02;
-                const numPuntos = duracion / dt;
-                const aceleraciones = Array.from({length: numPuntos}, (_, i) => {
-                    const t = i * dt;
-                    return pga * Math.sin(2 * PI * frecuenciaSitio * t) * 
-                           Math.exp(-0.1 * t); // Envolvente de decaimiento
-                });
-                
-                const intensidadArias = calcularIntensidadArias(aceleraciones, dt);
-                const cav = calcularCAV(aceleraciones, dt);
-                const aceleracionRMS = Math.sqrt(
-                    aceleraciones.reduce((sum, a) => sum + a*a, 0) / aceleraciones.length
-                );
-                
                 // Factores de reducción
                 const reduccionCortante = tieneAislador ? 
                     (1 - cortanteBasalCon / cortanteBasalSin) * 100 : 0;
                 const reduccionAceleracion = tieneAislador ? 
                     (1 - acelMaxCon / acelMaxSin) * 100 : 0;
-                const aumentoDesplazamiento = tieneAislador ? 
-                    ((desplMaxCon - desplMaxSin) / desplMaxSin) * 100 : 0;
                 
                 setResultados({
-                    // Sin aislador
                     sinAislador: {
                         desplazamiento: desplMaxSin,
                         velocidad: velMaxSin,
@@ -690,7 +660,6 @@
                         cortanteBasal: cortanteBasalSin,
                         fuerzaSismica: masaTotal * acelMaxSin
                     },
-                    // Con aislador
                     conAislador: {
                         desplazamiento: desplMaxCon,
                         velocidad: velMaxCon,
@@ -703,24 +672,17 @@
                         periodoAislado: periodoAislado,
                         amortiguamientoEfectivo: amortiguamientoEfectivo
                     },
-                    // Métricas del sismo
                     metricas: {
                         pga: pga,
-                        intensidadArias: intensidadArias,
-                        cav: cav,
-                        aceleracionRMS: aceleracionRMS,
                         frecuenciaSitio: frecuenciaSitio
                     },
-                    // Factores de reducción
                     reduccion: {
                         cortante: reduccionCortante,
-                        aceleracion: reduccionAceleracion,
-                        desplazamiento: aumentoDesplazamiento
+                        aceleracion: reduccionAceleracion
                     },
-                    // Datos para las gráficas
                     parametros: {
-                        duracion,
-                        dt,
+                        duracion: 20,
+                        dt: 0.02,
                         desplMaxSin,
                         desplMaxCon,
                         acelMaxSin,
@@ -728,13 +690,15 @@
                         frecuenciaAngular,
                         frecuenciaAngularAislada: tieneAislador ? 2 * PI / periodoAislado : frecuenciaAngular,
                         amortiguamiento,
-                        amortiguamientoEfectivo: tieneAislador ? amortiguamientoEfectivo : amortiguamiento
+                        amortiguamientoEfectivo: tieneAislador ? amortiguamientoEfectivo : amortiguamiento,
+                        energiaMecanicaSin,
+                        energiaMecanicaCon
                     }
                 });
                 
                 // Iniciar animación de gráficas
                 setTimeout(() => {
-                    animarGraficas(duracion, dt, {
+                    animarGraficas(20, 0.02, {
                         desplMaxSin,
                         desplMaxCon,
                         acelMaxSin,
@@ -788,18 +752,18 @@
                                        Math.exp(-0.1 * t);
                     
                     tiempos.push(t.toFixed(2));
-                    desplazamientosSin.push((desplSin * 100).toFixed(2)); // cm
-                    desplazamientosCon.push((desplCon * 100).toFixed(2)); // cm
+                    desplazamientosSin.push((desplSin * 100).toFixed(2));
+                    desplazamientosCon.push((desplCon * 100).toFixed(2));
                     aceleracionesSin.push(acelSin.toFixed(2));
                     aceleracionesCon.push(acelCon.toFixed(2));
-                    energiasSin.push((energiaSin / 1000).toFixed(2)); // kJ
-                    energiasCon.push((energiaCon / 1000).toFixed(2)); // kJ
+                    energiasSin.push((energiaSin / 1000).toFixed(2));
+                    energiasCon.push((energiaCon / 1000).toFixed(2));
                     
                     // Actualizar visualización de edificios
                     setDesplazamientoSin(desplSin * 100);
                     setDesplazamientoCon(desplCon * 100);
                     
-                    // Actualizar gráficas (mantener últimos 200 puntos visibles)
+                    // Actualizar gráficas
                     const startIndex = Math.max(0, currentIndex - 200);
                     
                     if (chartDesplazamientoInstance.current) {
@@ -824,7 +788,7 @@
                     }
                     
                     currentIndex++;
-                }, 50); // Actualizar cada 50ms para animación suave
+                }, 50);
             };
 
             // Inicializar gráficas
@@ -837,7 +801,7 @@
                             labels: [],
                             datasets: [
                                 {
-                                    label: 'Sin Aislador',
+                                    label: 'Sin Aislador (Base Fija)',
                                     data: [],
                                     borderColor: '#f44336',
                                     backgroundColor: 'rgba(244, 67, 54, 0.1)',
@@ -846,7 +810,7 @@
                                     pointRadius: 0
                                 },
                                 {
-                                    label: 'Con Aislador',
+                                    label: `Con Aislador (${tipoAislador})`,
                                     data: [],
                                     borderColor: '#4CAF50',
                                     backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -897,7 +861,7 @@
                             labels: [],
                             datasets: [
                                 {
-                                    label: 'Sin Aislador',
+                                    label: 'Sin Aislador (Base Fija)',
                                     data: [],
                                     borderColor: '#f44336',
                                     backgroundColor: 'rgba(244, 67, 54, 0.1)',
@@ -906,7 +870,7 @@
                                     pointRadius: 0
                                 },
                                 {
-                                    label: 'Con Aislador',
+                                    label: `Con Aislador (${tipoAislador})`,
                                     data: [],
                                     borderColor: '#4CAF50',
                                     backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -957,7 +921,7 @@
                             labels: [],
                             datasets: [
                                 {
-                                    label: 'Sin Aislador',
+                                    label: 'Sin Aislador (Base Fija)',
                                     data: [],
                                     borderColor: '#f44336',
                                     backgroundColor: 'rgba(244, 67, 54, 0.1)',
@@ -967,7 +931,7 @@
                                     fill: true
                                 },
                                 {
-                                    label: 'Con Aislador',
+                                    label: `Con Aislador (${tipoAislador})`,
                                     data: [],
                                     borderColor: '#4CAF50',
                                     backgroundColor: 'rgba(76, 175, 80, 0.1)',
@@ -1012,11 +976,42 @@
                 }
             }, [activeTab]);
 
+            // Obtener información del tipo de aislador
+            const getAisladorInfo = () => {
+                switch(tipoAislador) {
+                    case 'LRB':
+                        return {
+                            nombre: 'Lead Rubber Bearing (LRB)',
+                            descripcion: 'Aislador elastomérico con núcleo de plomo',
+                            amortiguamiento: '25-30%',
+                            caracteristicas: 'El núcleo de plomo disipa energía mediante deformación plástica. Muy efectivo para sismos fuertes.'
+                        };
+                    case 'HDRB':
+                        return {
+                            nombre: 'High Damping Rubber Bearing (HDRB)',
+                            descripcion: 'Aislador de goma de alto amortiguamiento',
+                            amortiguamiento: '10-20%',
+                            caracteristicas: 'Usa caucho especial con aditivos (carbón, aceites, resinas) que aumentan el amortiguamiento.'
+                        };
+                    case 'FPS':
+                        return {
+                            nombre: 'Friction Pendulum System (FPS)',
+                            descripcion: 'Sistema de péndulo friccional',
+                            amortiguamiento: '15-25%',
+                            caracteristicas: 'Deslizamiento sobre superficie cóncava. El amortiguamiento proviene de la fricción controlada.'
+                        };
+                    default:
+                        return null;
+                }
+            };
+
+            const aisladorInfo = getAisladorInfo();
+
             return (
                 <div className="container">
                     <div className="header">
                         <h1>🌍 Simulador Sísmico Educativo</h1>
-                        <p>Propagación de Ondas y Mitigación Estructural con Aisladores</p>
+                        <p>Sistemas de Aislamiento Sísmico de Base - Colombia</p>
                     </div>
                     
                     <div className="content">
@@ -1046,10 +1041,10 @@
                                 📊 Resultados
                             </button>
                             <button 
-                                className={`tab ${activeTab === 'formulas' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('formulas')}
+                                className={`tab ${activeTab === 'teoria' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('teoria')}
                             >
-                                📐 Fórmulas
+                                📚 Teoría
                             </button>
                         </div>
 
@@ -1067,17 +1062,6 @@
                                             step="0.1" 
                                             value={magnitud}
                                             onChange={(e) => setMagnitud(parseFloat(e.target.value))}
-                                        />
-                                    </div>
-                                    <div className="control-group">
-                                        <label>Profundidad (h): <span className="value-display">{profundidad} km</span></label>
-                                        <input 
-                                            type="range" 
-                                            min="5" 
-                                            max="100" 
-                                            step="5" 
-                                            value={profundidad}
-                                            onChange={(e) => setProfundidad(parseFloat(e.target.value))}
                                         />
                                     </div>
                                     <div className="control-group">
@@ -1105,7 +1089,7 @@
                                             style={{padding: '8px', borderRadius: '5px', border: '2px solid #ddd'}}
                                         >
                                             <option value="rocoso">Rocoso (Factor: 1.0)</option>
-                                            <option value="arenoso">Arenoso (Factor: 1.5)</option>
+                                            <option value="arenoso">Arenoso/Blando (Factor: 1.5)</option>
                                         </select>
                                     </div>
                                     <div className="control-group">
@@ -1131,8 +1115,11 @@
                                         />
                                     </div>
                                 </div>
-                                <div style={{marginTop: '15px', padding: '10px', background: '#e3f2fd', borderRadius: '5px'}}>
+                                <div className="info-box">
                                     <strong>Frecuencia Fundamental del Sitio (f₀):</strong> {frecuenciaSitio.toFixed(2)} Hz
+                                    <p style={{fontSize: '0.85rem', marginTop: '5px'}}>
+                                        La frecuencia del sitio es crucial para identificar posibles resonancias con la estructura
+                                    </p>
                                 </div>
                             </div>
 
@@ -1173,7 +1160,7 @@
                                         />
                                     </div>
                                 </div>
-                                <div style={{marginTop: '15px', padding: '15px', background: '#f3e5f5', borderRadius: '5px'}}>
+                                <div className="info-box">
                                     <div><strong>Masa Total:</strong> {(masaTotal/1000).toFixed(0)} toneladas</div>
                                     <div><strong>Periodo Natural (T):</strong> {periodo.toFixed(3)} s</div>
                                     <div><strong>Frecuencia (f):</strong> {frecuencia.toFixed(3)} Hz</div>
@@ -1182,7 +1169,7 @@
                             </div>
 
                             <div className="control-section">
-                                <h3>🛡️ Aislador Sísmico</h3>
+                                <h3>🛡️ Sistema de Aislamiento Sísmico</h3>
                                 <div className="control-group" style={{marginBottom: '20px'}}>
                                     <label style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                                         <input 
@@ -1191,35 +1178,47 @@
                                             onChange={(e) => setTieneAislador(e.target.checked)}
                                             style={{width: '20px', height: '20px'}}
                                         />
-                                        <span>Habilitar Aislador Sísmico</span>
+                                        <span>Habilitar Aislamiento Sísmico de Base</span>
                                     </label>
                                 </div>
                                 
                                 {tieneAislador && (
-                                    <div className="control-grid">
-                                        <div className="control-group">
-                                            <label>Tipo de Aislador:</label>
-                                            <select 
-                                                value={tipoAislador}
-                                                onChange={(e) => setTipoAislador(e.target.value)}
-                                                style={{padding: '8px', borderRadius: '5px', border: '2px solid #ddd'}}
-                                            >
-                                                <option value="LRB">LRB (Lead Rubber Bearing)</option>
-                                                <option value="FPS">FPS (Friction Pendulum)</option>
-                                            </select>
+                                    <>
+                                        <div className="control-grid">
+                                            <div className="control-group">
+                                                <label>Tipo de Aislador:</label>
+                                                <select 
+                                                    value={tipoAislador}
+                                                    onChange={(e) => setTipoAislador(e.target.value)}
+                                                    style={{padding: '8px', borderRadius: '5px', border: '2px solid #ddd'}}
+                                                >
+                                                    <option value="LRB">LRB - Lead Rubber Bearing</option>
+                                                    <option value="HDRB">HDRB - High Damping Rubber</option>
+                                                    <option value="FPS">FPS - Friction Pendulum</option>
+                                                </select>
+                                            </div>
+                                            <div className="control-group">
+                                                <label>Rigidez Efectiva (k_eff): <span className="value-display">{(rigidezAislador/1000).toFixed(0)} kN/m</span></label>
+                                                <input 
+                                                    type="range" 
+                                                    min="100000" 
+                                                    max="2000000" 
+                                                    step="50000" 
+                                                    value={rigidezAislador}
+                                                    onChange={(e) => setRigidezAislador(parseFloat(e.target.value))}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="control-group">
-                                            <label>Rigidez Efectiva (k_eff): <span className="value-display">{(rigidezAislador/1000).toFixed(0)} kN/m</span></label>
-                                            <input 
-                                                type="range" 
-                                                min="100000" 
-                                                max="2000000" 
-                                                step="50000" 
-                                                value={rigidezAislador}
-                                                onChange={(e) => setRigidezAislador(parseFloat(e.target.value))}
-                                            />
-                                        </div>
-                                    </div>
+                                        
+                                        {aisladorInfo && (
+                                            <div className="info-box">
+                                                <h5>{aisladorInfo.nombre}</h5>
+                                                <p><strong>Descripción:</strong> {aisladorInfo.descripcion}</p>
+                                                <p><strong>Amortiguamiento típico:</strong> {aisladorInfo.amortiguamiento}</p>
+                                                <p><strong>Características:</strong> {aisladorInfo.caracteristicas}</p>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -1228,7 +1227,7 @@
                                 onClick={simular}
                                 disabled={isSimulating}
                             >
-                                {isSimulating ? '⚡ Simulando...' : '▶️ SIMULAR SISMO'}
+                                {isSimulating ? '⚡ Simulando Evento Sísmico...' : '▶️ INICIAR SIMULACIÓN'}
                             </button>
                         </div>
 
@@ -1236,16 +1235,8 @@
                         <div className={`panel ${activeTab === 'visualizacion' ? 'active' : ''}`}>
                             <div className="building-container">
                                 <div className="building-card">
-                                    <h4>🏢 Sin Aislador Sísmico</h4>
+                                    <h4>🏢 Estructura con Base Fija</h4>
                                     <div className="building-visual">
-                                        <svg className="seismic-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
-                                            <path 
-                                                d="M0,10 Q25,5 50,10 T100,10" 
-                                                fill="none" 
-                                                stroke="#f44336" 
-                                                strokeWidth="2"
-                                            />
-                                        </svg>
                                         <div className="ground"></div>
                                         <div 
                                             className="building no-isolation" 
@@ -1276,7 +1267,7 @@
                                                 <div className="metric-unit">kN</div>
                                             </div>
                                             <div className="metric-card danger">
-                                                <div className="metric-label">Energía Mecánica</div>
+                                                <div className="metric-label">Energía</div>
                                                 <div className="metric-value">{(resultados.sinAislador.energiaMecanica / 1000).toFixed(0)}</div>
                                                 <div className="metric-unit">kJ</div>
                                             </div>
@@ -1285,16 +1276,8 @@
                                 </div>
 
                                 <div className="building-card with-isolation">
-                                    <h4>🛡️ Con Aislador Sísmico</h4>
+                                    <h4>🛡️ Estructura con Aislamiento Sísmico</h4>
                                     <div className="building-visual">
-                                        <svg className="seismic-wave" viewBox="0 0 100 20" preserveAspectRatio="none">
-                                            <path 
-                                                d="M0,10 Q25,12 50,10 T100,10" 
-                                                fill="none" 
-                                                stroke="#4CAF50" 
-                                                strokeWidth="2"
-                                            />
-                                        </svg>
                                         <div className="ground"></div>
                                         {tieneAislador && (
                                             <div className="isolator">
@@ -1331,7 +1314,7 @@
                                                 <div className="metric-unit">kN</div>
                                             </div>
                                             <div className="metric-card success">
-                                                <div className="metric-label">Energía Mecánica</div>
+                                                <div className="metric-label">Energía</div>
                                                 <div className="metric-value">{(resultados.conAislador.energiaMecanica / 1000).toFixed(0)}</div>
                                                 <div className="metric-unit">kJ</div>
                                             </div>
@@ -1341,15 +1324,16 @@
                             </div>
                         </div>
 
-                        {/* Panel de Gráficas Dinámicas */}
+                        {/* Panel de Gráficas */}
                         <div className={`panel ${activeTab === 'graficas' ? 'active' : ''}`}>
                             {resultados ? (
                                 <div className="charts-grid">
                                     <div className="control-section">
                                         <h3>📉 Desplazamiento en Tiempo Real</h3>
                                         <p style={{marginBottom: '15px', color: '#666'}}>
-                                            Observe cómo el edificio con aislador (línea verde) tiene oscilaciones mucho menores y más controladas 
-                                            comparado con el edificio sin aislador (línea roja).
+                                            <strong>Observación:</strong> El edificio con aislador sísmico {tipoAislador} (línea verde) presenta oscilaciones 
+                                            significativamente menores y más controladas que el edificio de base fija (línea roja), demostrando 
+                                            la efectividad del sistema de aislamiento.
                                         </p>
                                         <div className="chart-container">
                                             <canvas ref={chartDesplazamientoRef}></canvas>
@@ -1359,8 +1343,8 @@
                                     <div className="control-section">
                                         <h3>⚡ Aceleración en Tiempo Real</h3>
                                         <p style={{marginBottom: '15px', color: '#666'}}>
-                                            El aislador sísmico reduce significativamente las aceleraciones transmitidas a la estructura, 
-                                            protegiendo tanto el edificio como su contenido.
+                                            <strong>Protección sísmica:</strong> El aislador reduce las aceleraciones transmitidas a la superestructura, 
+                                            protegiendo tanto los elementos estructurales como el contenido del edificio (equipos, mobiliario, personas).
                                         </p>
                                         <div className="chart-container">
                                             <canvas ref={chartAceleracionRef}></canvas>
@@ -1370,8 +1354,11 @@
                                     <div className="control-section">
                                         <h3>🔋 Energía Mecánica en Tiempo Real</h3>
                                         <p style={{marginBottom: '15px', color: '#666'}}>
-                                            La energía disipada por el aislador se traduce en menor energía transmitida a la superestructura, 
-                                            evidenciando su efectividad en la protección sísmica.
+                                            <strong>Disipación de energía:</strong> La energía sísmica es disipada por el aislador mediante 
+                                            {tipoAislador === 'LRB' && ' deformación plástica del núcleo de plomo'}
+                                            {tipoAislador === 'HDRB' && ' las propiedades del caucho de alto amortiguamiento'}
+                                            {tipoAislador === 'FPS' && ' fricción controlada en la superficie deslizante'}, 
+                                            reduciendo la energía que llega a la estructura.
                                         </p>
                                         <div className="chart-container">
                                             <canvas ref={chartEnergiaRef}></canvas>
@@ -1386,17 +1373,16 @@
                                             color: 'white',
                                             borderRadius: '15px',
                                             fontSize: '1.2rem',
-                                            fontWeight: 'bold',
-                                            animation: 'pulse 1.5s infinite'
+                                            fontWeight: 'bold'
                                         }}>
-                                            ⚡ Simulación en Progreso... {isSimulating ? '🌊' : ''}
+                                            ⚡ Simulación de Evento Sísmico en Progreso... 🌊
                                         </div>
                                     )}
                                 </div>
                             ) : (
                                 <div style={{textAlign: 'center', padding: '60px', color: '#999'}}>
                                     <h3>⚠️ No hay gráficas disponibles</h3>
-                                    <p>Configure los parámetros y ejecute la simulación para ver las gráficas dinámicas</p>
+                                    <p>Configure los parámetros del sistema y ejecute la simulación para ver las gráficas dinámicas</p>
                                     <button 
                                         className="btn-simulate" 
                                         onClick={() => setActiveTab('configuracion')}
@@ -1413,26 +1399,11 @@
                             {resultados ? (
                                 <>
                                     <div className="control-section">
-                                        <h3>📈 Métricas del Sismo</h3>
+                                        <h3>📈 Parámetros del Sismo</h3>
                                         <div className="metrics-grid">
                                             <div className="metric-card">
-                                                <div className="metric-label">PGA (Aceleración Pico)</div>
+                                                <div className="metric-label">PGA</div>
                                                 <div className="metric-value">{resultados.metricas.pga.toFixed(3)}</div>
-                                                <div className="metric-unit">m/s²</div>
-                                            </div>
-                                            <div className="metric-card">
-                                                <div className="metric-label">Intensidad de Arias (IA)</div>
-                                                <div className="metric-value">{resultados.metricas.intensidadArias.toFixed(3)}</div>
-                                                <div className="metric-unit">m/s</div>
-                                            </div>
-                                            <div className="metric-card">
-                                                <div className="metric-label">CAV</div>
-                                                <div className="metric-value">{resultados.metricas.cav.toFixed(3)}</div>
-                                                <div className="metric-unit">m/s</div>
-                                            </div>
-                                            <div className="metric-card">
-                                                <div className="metric-label">Aceleración RMS</div>
-                                                <div className="metric-value">{resultados.metricas.aceleracionRMS.toFixed(3)}</div>
                                                 <div className="metric-unit">m/s²</div>
                                             </div>
                                             <div className="metric-card">
@@ -1445,7 +1416,7 @@
 
                                     {tieneAislador && (
                                         <div className="comparison-section">
-                                            <h4>📊 Comparación: Efectividad del Aislador</h4>
+                                            <h4>📊 Efectividad del Sistema de Aislamiento {tipoAislador}</h4>
                                             <div className="comparison-bars">
                                                 <div className="comparison-item">
                                                     <div className="comparison-label">Cortante Basal</div>
@@ -1512,167 +1483,108 @@
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="comparison-item">
-                                                    <div className="comparison-label">Desplazamiento del Aislador</div>
-                                                    <div style={{
-                                                        padding: '15px',
-                                                        background: '#fff3e0',
-                                                        borderRadius: '5px',
-                                                        marginTop: '10px'
-                                                    }}>
-                                                        <strong>Desplazamiento:</strong> {(resultados.conAislador.desplazamiento * 100).toFixed(2)} cm
-                                                        <br/>
-                                                        <strong>Periodo Aislado:</strong> {resultados.conAislador.periodoAislado.toFixed(3)} s
-                                                        <br/>
-                                                        <strong>Amortiguamiento Efectivo:</strong> {(resultados.conAislador.amortiguamientoEfectivo * 100).toFixed(1)}%
-                                                    </div>
-                                                </div>
+                                            </div>
+                                            
+                                            <div className="info-box" style={{marginTop: '20px'}}>
+                                                <h5>Características del Sistema Aislado</h5>
+                                                <p><strong>Periodo Aislado (Tiso):</strong> {resultados.conAislador.periodoAislado.toFixed(3)} s</p>
+                                                <p><strong>Amortiguamiento Efectivo (ξ_eff):</strong> {(resultados.conAislador.amortiguamientoEfectivo * 100).toFixed(1)}%</p>
+                                                <p><strong>Desplazamiento del Aislador:</strong> {(resultados.conAislador.desplazamiento * 100).toFixed(2)} cm</p>
+                                                <p style={{marginTop: '10px', fontSize: '0.9rem'}}>
+                                                    El periodo del sistema aislado es significativamente mayor que el de base fija, 
+                                                    lo que aleja a la estructura del rango de frecuencias dominantes del sismo.
+                                                </p>
                                             </div>
                                         </div>
                                     )}
-
-                                    <div className="control-section">
-                                        <h3>⚡ Balance de Energía</h3>
-                                        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
-                                            <div>
-                                                <h4 style={{marginBottom: '15px'}}>Sin Aislador</h4>
-                                                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                                                    <div style={{padding: '10px', background: '#ffebee', borderRadius: '5px'}}>
-                                                        <strong>Energía Cinética:</strong> {(resultados.sinAislador.energiaCinetica/1000).toFixed(2)} kJ
-                                                    </div>
-                                                    <div style={{padding: '10px', background: '#e3f2fd', borderRadius: '5px'}}>
-                                                        <strong>Energía Potencial:</strong> {(resultados.sinAislador.energiaPotencial/1000).toFixed(2)} kJ
-                                                    </div>
-                                                    <div style={{padding: '10px', background: '#f3e5f5', borderRadius: '5px'}}>
-                                                        <strong>Energía Mecánica Total:</strong> {(resultados.sinAislador.energiaMecanica/1000).toFixed(2)} kJ
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h4 style={{marginBottom: '15px'}}>Con Aislador</h4>
-                                                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                                                    <div style={{padding: '10px', background: '#e8f5e9', borderRadius: '5px'}}>
-                                                        <strong>Energía Cinética:</strong> {(resultados.conAislador.energiaCinetica/1000).toFixed(2)} kJ
-                                                    </div>
-                                                    <div style={{padding: '10px', background: '#e8f5e9', borderRadius: '5px'}}>
-                                                        <strong>Energía Potencial:</strong> {(resultados.conAislador.energiaPotencial/1000).toFixed(2)} kJ
-                                                    </div>
-                                                    <div style={{padding: '10px', background: '#c8e6c9', borderRadius: '5px'}}>
-                                                        <strong>Energía Mecánica Total:</strong> {(resultados.conAislador.energiaMecanica/1000).toFixed(2)} kJ
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </>
                             ) : (
                                 <div style={{textAlign: 'center', padding: '60px', color: '#999'}}>
                                     <h3>⚠️ No hay resultados disponibles</h3>
-                                    <p>Configure los parámetros y ejecute la simulación</p>
+                                    <p>Ejecute la simulación para ver los resultados</p>
                                 </div>
                             )}
                         </div>
 
-                        {/* Panel de Fórmulas */}
-                        <div className={`panel ${activeTab === 'formulas' ? 'active' : ''}`}>
-                            <div className="formula-section">
-                                <h3>🌊 Propagación y Atenuación</h3>
-                                <div className="formula">E = 10^(1.5 × Mw + 4.8)</div>
-                                <div className="definition">Energía liberada por el sismo (Gutenberg-Richter)</div>
-                                
-                                <div className="formula">Atenuación = 1 / R^1.5</div>
-                                <div className="definition">Factor de atenuación geométrica por distancia</div>
-                                
-                                <div className="formula">PGA = Intensidad × Factor_Suelo</div>
-                                <div className="definition">Aceleración pico del suelo en superficie</div>
-                            </div>
+                        {/* Panel de Teoría */}
+                        <div className={`panel ${activeTab === 'teoria' ? 'active' : ''}`}>
+                            <div className="control-section">
+                                <h3>📚 Fundamentos del Aislamiento Sísmico</h3>
+                                <div className="info-box">
+                                    <h5>¿Qué es el Aislamiento Sísmico?</h5>
+                                    <p>
+                                        El aislamiento sísmico es una técnica que busca <strong>desacoplar la estructura del movimiento del suelo</strong> 
+                                        durante un sismo, mediante dispositivos especiales ubicados entre la cimentación y la superestructura.
+                                    </p>
+                                    <p style={{marginTop: '10px'}}>
+                                        <strong>Principio fundamental:</strong> Aumentar el periodo natural de vibración de la estructura 
+                                        y proporcionar amortiguamiento adicional, reduciendo así las fuerzas sísmicas transmitidas.
+                                    </p>
+                                </div>
 
-                            <div className="formula-section">
-                                <h3>📐 Propiedades Estructurales</h3>
-                                <div className="formula">T = 0.1 × N_pisos</div>
-                                <div className="definition">Periodo natural de la estructura (segundos)</div>
-                                
-                                <div className="formula">f = 1 / T</div>
-                                <div className="definition">Frecuencia natural (Hz)</div>
-                                
-                                <div className="formula">ω = 2π / T</div>
-                                <div className="definition">Frecuencia angular (rad/s)</div>
-                                
-                                <div className="formula">k = m × ω²</div>
-                                <div className="definition">Rigidez de la estructura (N/m)</div>
-                                
-                                <div className="formula">c = 2 × ζ × m × ω</div>
-                                <div className="definition">Coeficiente de amortiguamiento viscoso</div>
-                            </div>
+                                <div className="info-box">
+                                    <h5>Tipos de Aisladores Sísmicos</h5>
+                                    
+                                    <p style={{marginTop: '15px'}}><strong>1. LRB (Lead Rubber Bearing)</strong></p>
+                                    <p>
+                                        • Aislador elastomérico con núcleo de plomo<br/>
+                                        • El plomo disipa energía por deformación plástica<br/>
+                                        • Amortiguamiento: 25-30%<br/>
+                                        • Muy efectivo para sismos de alta intensidad
+                                    </p>
 
-                            <div className="formula-section">
-                                <h3>🏔️ Efecto de Sitio</h3>
-                                <div className="formula">f₀ ≈ Vs / (4H)</div>
-                                <div className="definition">Frecuencia fundamental del sitio</div>
-                                
-                                <div className="formula">λ = V / f</div>
-                                <div className="definition">Longitud de onda</div>
-                            </div>
+                                    <p style={{marginTop: '15px'}}><strong>2. HDRB (High Damping Rubber Bearing)</strong></p>
+                                    <p>
+                                        • Caucho especial con aditivos (carbón, aceites, resinas)<br/>
+                                        • Amortiguamiento: 10-20%<br/>
+                                        • Ahorro de 20-50% comparado con SREI<br/>
+                                        • Ampliamente usado en edificios de baja altura
+                                    </p>
 
-                            <div className="formula-section">
-                                <h3>⚡ Energías</h3>
-                                <div className="formula">Ek = ½ m v²</div>
-                                <div className="definition">Energía cinética</div>
-                                
-                                <div className="formula">Es = ½ k u²</div>
-                                <div className="definition">Energía potencial elástica</div>
-                                
-                                <div className="formula">Em = Ek + Es</div>
-                                <div className="definition">Energía mecánica total</div>
-                                
-                                <div className="formula">Ec = ∫ c v² dt</div>
-                                <div className="definition">Energía disipada por amortiguamiento viscoso</div>
-                                
-                                <div className="formula">Ein = ∫ (-m üg ũ) dt</div>
-                                <div className="definition">Energía de entrada desde el suelo</div>
-                            </div>
+                                    <p style={{marginTop: '15px'}}><strong>3. FPS (Friction Pendulum System)</strong></p>
+                                    <p>
+                                        • Sistema de péndulo friccional<br/>
+                                        • Deslizamiento sobre superficie cóncava<br/>
+                                        • Amortiguamiento por fricción controlada<br/>
+                                        • Periodo independiente de la masa
+                                    </p>
+                                </div>
 
-                            <div className="formula-section">
-                                <h3>📊 Métricas Sísmicas</h3>
-                                <div className="formula">IA = (π / 2g) ∫ a²(t) dt</div>
-                                <div className="definition">Intensidad de Arias</div>
-                                
-                                <div className="formula">CAV = ∫ |a(t)| dt</div>
-                                <div className="definition">Valor acumulado de aceleración</div>
-                                
-                                <div className="formula">a_rms = √(⟨a²⟩)</div>
-                                <div className="definition">Aceleración RMS</div>
-                                
-                                <div className="formula">V = k u + c v</div>
-                                <div className="definition">Cortante basal</div>
-                            </div>
+                                <div className="info-box">
+                                    <h5>Ventajas del Aislamiento Sísmico</h5>
+                                    <p>
+                                        ✓ <strong>Reducción de fuerzas sísmicas:</strong> 60-80% en cortante basal<br/>
+                                        ✓ <strong>Protección de contenidos:</strong> Menor aceleración = menos daño a equipos y mobiliario<br/>
+                                        ✓ <strong>Operacionalidad post-sismo:</strong> El edificio puede seguir funcionando<br/>
+                                        ✓ <strong>Reemplazable:</strong> Los aisladores pueden cambiarse sin afectar la estructura<br/>
+                                        ✓ <strong>Protección de vidas:</strong> Menor riesgo para los ocupantes
+                                    </p>
+                                </div>
 
-                            <div className="formula-section">
-                                <h3>🛡️ Aisladores Sísmicos</h3>
-                                <div className="formula">Tiso = 2π √(m / k_eff)</div>
-                                <div className="definition">Periodo del sistema aislado (LRB)</div>
-                                
-                                <div className="formula">Tiso = 2π √(Rp / g)</div>
-                                <div className="definition">Periodo del sistema aislado (FPS)</div>
-                                
-                                <div className="formula">ξ_eff ≈ (2/π) × (Fy / (k_eff û))</div>
-                                <div className="definition">Amortiguamiento efectivo (LRB)</div>
-                                
-                                <div className="formula">ξ_eff ≈ μ / (2π)</div>
-                                <div className="definition">Amortiguamiento efectivo (FPS)</div>
-                                
-                                <div className="formula">Es,iso = ½ k_eff u_iso²</div>
-                                <div className="definition">Energía elástica en el aislador</div>
-                            </div>
+                                <div className="info-box">
+                                    <h5>Aplicaciones en Colombia</h5>
+                                    <p>
+                                        <strong>Estado actual:</strong> Colombia, siendo un país de alta actividad sísmica (85% de la población 
+                                        en zona de amenaza), ha implementado aisladores en:
+                                    </p>
+                                    <p style={{marginTop: '10px'}}>
+                                        • <strong>Puentes:</strong> Viaducto Portachuelo (Zipaquirá), Puente Cra. 44 (Cali)<br/>
+                                        • <strong>Edificios:</strong> Solo 3 edificios aislados para 2016 (uso especial)<br/>
+                                        • <strong>Desafío:</strong> Alto costo de importación - no hay fabricación local
+                                    </p>
+                                </div>
 
-                            <div className="formula-section">
-                                <h3>📈 Factores de Reducción</h3>
-                                <div className="formula">RV = V_max,iso / V_max,sin</div>
-                                <div className="definition">Factor de reducción del cortante basal</div>
-                                
-                                <div className="formula">RSa = a_abs,max,iso / a_abs,max,sin</div>
-                                <div className="definition">Factor de reducción de aceleraciones</div>
+                                <div className="info-box">
+                                    <h5>Fórmulas Clave</h5>
+                                    <p>
+                                        <strong>Periodo estructural:</strong> T = 0.1 × N_pisos (s)<br/>
+                                        <strong>Frecuencia del sitio:</strong> f₀ = VS / (4H) (Hz)<br/>
+                                        <strong>Periodo aislado:</strong> Tiso = 2π√(m/k_eff) (s)<br/>
+                                        <strong>Cortante basal:</strong> V = ku + cv (kN)<br/>
+                                        <strong>Energía cinética:</strong> Ek = ½mv² (J)<br/>
+                                        <strong>Energía potencial:</strong> Es = ½ku² (J)
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
